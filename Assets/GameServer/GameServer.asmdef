@@ -1,0 +1,17 @@
+{
+    "name": "GameServer",
+    "rootNamespace": "",
+    "references": [
+        "GUID:eadae57fd178a3a4891d3cfd6c98771f",
+        "GUID:6f99bebaf8b07cd4bb8f6f9c28c593ce"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
