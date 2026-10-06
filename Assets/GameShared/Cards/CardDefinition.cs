@@ -11,9 +11,6 @@ namespace GameShared.Cards
         public int Id;
 
         public string Name;
-        public CardType Type;
-        public CardArchetype Archetype;
-
         public int BaseCost;
         public int BasePower;
     }

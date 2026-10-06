@@ -18,5 +18,7 @@ namespace GameShared.Cards
         // The current, modified stats
         public int CurrentCost;
         public int CurrentPower;
+
+        public bool IsRevealed;
     }
 }
