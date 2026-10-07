@@ -16,7 +16,7 @@ namespace GameServer.MatchManagement
     public class ServerMatchManager
     {
         private readonly StateMachine _matchStateMachine;
-        private readonly ServerBoardState _boardState;
+        public ServerBoardState Board { get; private set; }
         private readonly MatchRules _rules;
         private readonly Random _rng;
 
@@ -25,7 +25,7 @@ namespace GameServer.MatchManagement
         public ServerMatchManager(MatchRules rules)
         {
             _rules = rules;
-            _boardState = new ServerBoardState(_rules);
+            Board = new ServerBoardState(_rules);
             _matchStateMachine = new StateMachine();
             _rng = new Random();
         }
@@ -38,11 +38,11 @@ namespace GameServer.MatchManagement
             GameLogger.Log("--- Initializing Server Match ---");
 
             // Initialize Players
-            _boardState.InitializePlayer(playerOneId);
-            _boardState.InitializePlayer(playerTwoId);
+            Board.InitializePlayer(playerOneId);
+            Board.InitializePlayer(playerTwoId);
 
-            PlayerState p1State = _boardState.GetPlayer(playerOneId);
-            PlayerState p2State = _boardState.GetPlayer(playerTwoId);
+            PlayerState p1State = Board.GetPlayer(playerOneId);
+            PlayerState p2State = Board.GetPlayer(playerTwoId);
 
             // Generate and Shuffle Decks
             GenerateAndShuffleDeck(p1State, p1DeckDefinitionIds);
@@ -55,7 +55,7 @@ namespace GameServer.MatchManagement
             // Start the Engine (Turn 1 will immediately draw their next card via Cleanup Phase logic)
             // Bootstap by faking a transition into Cleanup Phase to distribute Turn 1 energy/draws.
             GameLogger.Log("Match Setup Complete. Starting Engine...");
-            _matchStateMachine.ChangeState(new CleanupPhaseState(_matchStateMachine, _boardState));
+            _matchStateMachine.ChangeState(new CleanupPhaseState(_matchStateMachine, Board));
         }
 
         /// <summary>
@@ -131,6 +131,14 @@ namespace GameServer.MatchManagement
         {
             _networkIdCounter++;
             return _networkIdCounter;
+        }
+
+        /// <summary>
+        /// Pumps the state machine. In a live server, this is called by the main server loop.
+        /// </summary>
+        public void Tick()
+        {
+            _matchStateMachine.Tick();
         }
     }
 }

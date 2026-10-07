@@ -40,6 +40,11 @@ namespace GameServer.MatchState.States
 
             // Reveal Priority Player's cards left to right
             RevealCardsForPlayer(priorityPlayerId);
+
+            // Reveal Non-Priority Player's cards left to right
+            RevealCardsForPlayer(nonPriorityPlayerId);
+
+            _stateMachine.ChangeState(new CleanupPhaseState(_stateMachine, _board));
         }
 
         public void Tick()

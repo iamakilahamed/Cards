@@ -43,9 +43,7 @@ namespace GameServer.MatchState.States
             if (p1Locked && p2Locked)
             {
                 GameLogger.Log("Both players locked in. Transitioning to Reveal Phase.");
-
-                // Note: We will write RevealPhaseState next!
-                // _stateMachine.ChangeState(new RevealPhaseState(_stateMachine, _board));
+                _stateMachine.ChangeState(new RevealPhaseState(_stateMachine, _board));
             }
         }
 
@@ -62,7 +60,7 @@ namespace GameServer.MatchState.States
             var player = _board.GetPlayer(req.PlayerId);
             if (player != null)
             {
-                player.HasLockedIn = false;
+                player.HasLockedIn = true;
                 GameLogger.Log($"Player {req.PlayerId} locked in.");
             }
         }

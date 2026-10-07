@@ -17,7 +17,7 @@ namespace GameServer.MatchState
         public ServerBoardState(MatchRules rules)
         {
             Rules = rules;
-            CurrentTurn = 1;
+            CurrentTurn = 0;
             CubeStakes = 1;
 
             Locations = new ServerLocation[Rules.NumberOfLocations];
