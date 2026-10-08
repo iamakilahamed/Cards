@@ -33,6 +33,7 @@ namespace GameServer.MatchState.States
             if (_board.CurrentTurn > _board.Rules.MaxTurns)
             {
                 GameLogger.Log($"Max turns ({_board.Rules.MaxTurns}) reached. Transitioning to Match End.");
+                _stateMachine.ChangeState(new MatchEndState(_stateMachine, _board));
                 return;
             }
 

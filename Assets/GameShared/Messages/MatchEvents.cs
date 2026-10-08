@@ -46,4 +46,15 @@ namespace GameShared.Messages
         public int LocationIndex;
         public int CurrentPower;
     }
+
+    /// <summary>
+    /// Broadcast by the Server when the match concludes and stakes are finalized.
+    /// </summary>
+    public struct MatchEndedEvent
+    {
+        public int WinningPlayerId; // 1 = Player 1, 2 = Player 2, 0 = Tie
+        public int CubePayout;      // The number of cubes won (or 0 if tie)
+        public int Player1TotalPower;
+        public int Player2TotalPower;
+    }
 }

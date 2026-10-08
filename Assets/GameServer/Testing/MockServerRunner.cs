@@ -3,6 +3,7 @@ using CoreFramework.Events;
 using CoreFramework.Logging;
 using GameServer.MatchManagement;
 using GameServer.MatchState;
+using GameShared.Cards;
 using GameShared.Messages;
 using GameShared.Rules;
 using UnityEngine;
@@ -17,6 +18,9 @@ namespace GameServer.Testing
         private void Start()
         {
             GameLogger.Log("MockServerRunner awake. Booting headless server...");
+
+            // Load the Data Layer first
+            CardDatabase.Initialize();
 
             // Define the rules
             MatchRules rules = MatchRules.CreateDefault();

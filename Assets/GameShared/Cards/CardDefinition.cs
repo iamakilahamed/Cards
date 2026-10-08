@@ -8,9 +8,10 @@ namespace GameShared.Cards
     public struct CardDefinition
     {
         // Unique global ID for this specific card design in the database.
-        public int Id;
+        public int DefinitionId;
 
-        public string Name;
+        public string CardName;
+
         public int BaseCost;
         public int BasePower;
     }

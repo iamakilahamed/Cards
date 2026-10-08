@@ -71,16 +71,17 @@ namespace GameServer.MatchManagement
 
             foreach (int definitionId in definitionIds)
             {
+                // Look up the blueprint
+                CardDefinition blueprint = CardDatabase.GetCard(definitionId);
+
+                // Build the living instance from the blueprint
                 var card = new CardInstance
                 {
                     NetworkId = GetNextNetworkId(),
                     DefinitionId = definitionId,
                     OwnerPlayerId = player.PlayerId,
-
-                    // NOTE: A real server would look up the DefinitionId in a static database here 
-                    // to set the CurrentCost and CurrentPower. We will implement the Card Database later.
-                    CurrentCost = 0,
-                    CurrentPower = 0,
+                    CurrentCost = blueprint.BaseCost,
+                    CurrentPower = blueprint.BasePower,
 
                     IsRevealed = false
                 };
