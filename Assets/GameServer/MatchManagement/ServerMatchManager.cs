@@ -6,6 +6,8 @@ using GameShared.Cards;
 using GameShared.Rules;
 using GameServer.MatchState;
 using GameServer.MatchState.States;
+using CoreFramework.Events;
+using GameShared.Messages;
 
 namespace GameServer.MatchManagement
 {
@@ -94,7 +96,7 @@ namespace GameServer.MatchManagement
         }
 
         /// <summary>
-        /// Draws the initial starting hand without triggering standard Turn 1 logic.
+        /// Draws the initial starting hand and broadcasts the draws to the client.
         /// </summary>
         private void DrawOpeningHand(PlayerState player)
         {
@@ -102,8 +104,16 @@ namespace GameServer.MatchManagement
             {
                 if (player.Deck.Count > 0)
                 {
-                    player.Hand.Add(player.Deck[0]);
+                    var drawnCard = player.Deck[0];
+
+                    player.Hand.Add(drawnCard);
                     player.Deck.RemoveAt(0);
+
+                    EventBus.Publish(new CardDrawnEvent
+                    {
+                        PlayerId = player.PlayerId,
+                        CardData = drawnCard
+                    });
                 }
             }
             GameLogger.Log($"Player {player.PlayerId} drew opening hand of {_rules.InitialDrawSize} cards.");
