@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using CoreFramework.Events;
 using CoreFramework.Logging;
 using CoreFramework.StateMachine;
@@ -24,6 +25,9 @@ namespace GameServer.MatchState.States
         {
             GameLogger.Log("--- Reveal Phase Started ---");
 
+            // Tell clients where the unrevealed cards are so they can spawn them face-down
+            BroadcastLockedCards();
+
             // Determine who is currently winning the board
             int priorityPlayerId = _board.GetPriorityPlayerId();
             int nonPriorityPlayerId = priorityPlayerId == 1 ? 2 : 1;
@@ -45,6 +49,36 @@ namespace GameServer.MatchState.States
             RevealCardsForPlayer(nonPriorityPlayerId);
 
             _stateMachine.ChangeState(new CleanupPhaseState(_stateMachine, _board));
+        }
+
+        private void BroadcastLockedCards()
+        {
+            // Gather all unrevealed cards for Player 2 (the opponent)
+            var p2LockedCards = new List<OpponentCardsLockedEvent.LockedCardInfo>();
+
+            foreach (var location in _board.Locations)
+            {
+                foreach (var card in location.Player2Cards)
+                {
+                    if (card.NetworkId != 0 && !card.IsRevealed)
+                    {
+                        p2LockedCards.Add(new OpponentCardsLockedEvent.LockedCardInfo
+                        {
+                            CardNetworkId = card.NetworkId,
+                            LocationIndex = location.LocationIndex
+                        });
+                    }
+                }
+            }
+
+            if (p2LockedCards.Count > 0)
+            {
+                EventBus.Publish(new OpponentCardsLockedEvent
+                {
+                    OpponentId = 2,
+                    LockedCards = p2LockedCards
+                });
+            }
         }
 
         public void Tick()

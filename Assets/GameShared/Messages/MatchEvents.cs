@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using GameShared.Cards;
 
 namespace GameShared.Messages
@@ -56,5 +57,22 @@ namespace GameShared.Messages
         public int CubePayout;      // The number of cubes won (or 0 if tie)
         public int Player1TotalPower;
         public int Player2TotalPower;
+    }
+
+    /// <summary>
+    /// Broadcast by the Server at the start of the Reveal Phase.
+    /// Tells the client where the opponent placed their face-down cards.
+    /// </summary>
+    public struct OpponentCardsLockedEvent
+    {
+        public int OpponentId;
+
+        public struct LockedCardInfo
+        {
+            public int CardNetworkId;
+            public int LocationIndex;
+        }
+
+        public List<LockedCardInfo> LockedCards;
     }
 }

@@ -15,6 +15,12 @@ namespace GameClient.Cards
         [SerializeField] private TextMeshProUGUI _powerText;
         [SerializeField] private TextMeshProUGUI _nameText;
 
+        [Header("Visuals")]
+        [SerializeField] private GameObject _cardBackVisual;
+        [SerializeField] private Transform _visualPivot;
+
+        public Transform VisualPivot => _visualPivot;
+
         public int NetworkId { get; private set; }
 
         /// <summary>
@@ -35,6 +41,14 @@ namespace GameClient.Cards
         {
             _costText.text = currentCost.ToString();
             _powerText.text = currentPower.ToString();
+        }
+
+        public void SetFaceDown(bool isFaceDown)
+        {
+            if (_cardBackVisual != null)
+            {
+                _cardBackVisual.SetActive(isFaceDown);
+            }
         }
     }
 }

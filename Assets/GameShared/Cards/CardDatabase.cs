@@ -10,8 +10,8 @@ namespace GameShared.Cards
     {
         // Data Generation Constants
         private const int TOTAL_MOCK_CARDS = 12;
-        private const int GENERIC_BASE_COST = 2;
-        private const int GENERIC_BASE_POWER = 2;
+        private const int GENERIC_BASE_COST = 1;
+        private const int GENERIC_BASE_POWER = 1;
 
         // String Constants
         private const string GENERIC_CARD_PREFIX = "Generic Card";

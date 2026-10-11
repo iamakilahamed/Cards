@@ -62,6 +62,9 @@ namespace GameServer.MatchState.States
             {
                 player.HasLockedIn = true;
                 GameLogger.Log($"Player {req.PlayerId} locked in.");
+
+                // MOCK: Auto-lock Player 2 for testing
+                _board.GetPlayer(2).HasLockedIn = true;
             }
         }
 
