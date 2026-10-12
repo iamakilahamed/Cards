@@ -11,15 +11,17 @@ namespace GameClient.VisualQueue.Actions
         private readonly CardView _cardInstance;
         private readonly CardInstance _instanceData;
         private readonly CardDefinition _blueprint;
+        private readonly Vector3 _targetPosition;
 
         private const float ANIMATION_DURATION = 0.35f;
         private const int MILLISECONDS_DELAY_BETWEEN_DRAWS = 150;
 
-        public DrawCardAction(CardView prefab, CardInstance instanceData, CardDefinition blueprint)
+        public DrawCardAction(CardView prefab, CardInstance instanceData, CardDefinition blueprint, Vector3 targetPosition)
         {
             _cardInstance = prefab;
             _instanceData = instanceData;
             _blueprint = blueprint;
+            _targetPosition = targetPosition;
         }
 
         public async Task ExecuteAsync()
@@ -30,9 +32,13 @@ namespace GameClient.VisualQueue.Actions
 
             var tcs = new TaskCompletionSource<bool>();
 
-            _cardInstance.transform.DOScale(Vector3.one, ANIMATION_DURATION)
-                .SetEase(Ease.OutBack)
-                .OnComplete(() => tcs.SetResult(true));
+            Sequence seq = DOTween.Sequence();
+
+            // Scale and move simultaneously using seq.Join
+            seq.Append(_cardInstance.transform.DOScale(Vector3.one, ANIMATION_DURATION).SetEase(Ease.OutBack));
+            seq.Join(_cardInstance.transform.DOMove(_targetPosition, ANIMATION_DURATION).SetEase(Ease.OutQuad));
+
+            seq.OnComplete(() => tcs.SetResult(true));
 
             await tcs.Task;
             await Task.Delay(MILLISECONDS_DELAY_BETWEEN_DRAWS);

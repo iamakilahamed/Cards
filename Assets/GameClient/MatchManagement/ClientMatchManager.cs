@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using CoreFramework.Events;
 using CoreFramework.Logging;
 using GameClient.Cards;
+using GameClient.Zones;
 using GameClient.VisualQueue;
 using GameClient.VisualQueue.Actions;
 using GameShared.Cards;
@@ -18,8 +19,8 @@ namespace GameClient.MatchManagement
         [Header("Prefabs")]
         [SerializeField] private CardView _cardPrefab;
 
-        [Header("UI Zones")]
-        [SerializeField] private Transform _handZone;
+        [Header("Zones")]
+        [SerializeField] private HandZone _handZone;
         [SerializeField] private Transform[] _opponentLocations;
 
         [Header("Systems")]
@@ -29,6 +30,8 @@ namespace GameClient.MatchManagement
 
         // Tracks cards played during the current planning phase
         private readonly List<CardView> _stagedCardsThisTurn = new List<CardView>();
+
+        private readonly List<CardView> _localHand = new List<CardView>();
 
         // In a live networked game, the client determines its own ID on login.
         // For our local simulation, we hardcode the client to observe Player 1.
@@ -60,12 +63,18 @@ namespace GameClient.MatchManagement
             // Retrive the immutable blueprint from the Data Layer
             CardDefinition blueprint = CardDatabase.GetCard(evt.CardData.DefinitionId);
 
-            // Instantiate hidden card and track it
-            CardView spawnedCard = Instantiate(_cardPrefab, _handZone);
+            // Spawn in the hand zone
+            CardView spawnedCard = Instantiate(_cardPrefab, _handZone.transform);
             spawnedCard.gameObject.SetActive(false);
-            _cardDictionary[evt.CardData.NetworkId] = spawnedCard;
 
-            var drawAction = new DrawCardAction(spawnedCard, evt.CardData, blueprint);
+            _cardDictionary[evt.CardData.NetworkId] = spawnedCard;
+            _localHand.Add(spawnedCard);
+
+            // Calculate this specific card's slot in the hand
+            int cardIndex = _localHand.Count - 1;
+            Vector3 targetPos = _handZone.GetCardPosition(cardIndex, _localHand.Count);
+
+            var drawAction = new DrawCardAction(spawnedCard, evt.CardData, blueprint, targetPos);
             _visualQueue.Enqueue(drawAction);
         }
 
