@@ -1,0 +1,16 @@
+{
+    "name": "CAT.Editor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:5e82db6f3f895f642a7ccb37129edb45"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

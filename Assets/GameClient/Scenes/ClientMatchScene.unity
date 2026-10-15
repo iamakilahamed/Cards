@@ -2258,7 +2258,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: GameClient::GameClient.MatchManagement.ClientMatchManager
   _cardPrefab: {fileID: 1336718306883368044, guid: 386aa2955f4a20b47bedf435801e6a9b, type: 3}
-  _handZone: {fileID: 0}
+  _handZone: {fileID: 900619417}
   _opponentLocations: []
   _visualQueue: {fileID: 2130993276}
 --- !u!114 &2130993276
