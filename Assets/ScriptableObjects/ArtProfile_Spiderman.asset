@@ -16,17 +16,27 @@ MonoBehaviour:
   GlobalDepthMultiplier: 1
   BackgroundLayers:
   - Artwork: {fileID: 21300000, guid: 3db63e78b881b7946a64881ba813fa65, type: 3}
-    ZOffset: 0
+    ZOffset: 1.21
+    Offset: {x: 0, y: 0}
+    Scale: 1
   SubjectLayers:
   - Artwork: {fileID: 21300000, guid: 379b1bdde7e3d2345992c6910693cc9b, type: 3}
-    ZOffset: 0
+    ZOffset: -0.63
+    Offset: {x: 0, y: 0}
+    Scale: 1.22
   FrameLayer:
     Artwork: {fileID: 21300000, guid: a0bf74ccdafc46e469f61ea7b9e39158, type: 3}
     ZOffset: 0
+    Offset: {x: 0, y: 0}
+    Scale: 1
   MaskLayer: {fileID: 21300000, guid: 61297085d073cc049a5c28da8dc7887d, type: 3}
   ForegroundLayers:
   - Artwork: {fileID: 0}
     ZOffset: 0
+    Offset: {x: 0, y: 0}
+    Scale: 1
   NameplateLayer:
     Artwork: {fileID: 21300000, guid: fe20e139c50eb1349a6a0fad9275f2fb, type: 3}
-    ZOffset: 0
+    ZOffset: -0.7
+    Offset: {x: 0, y: 3.76}
+    Scale: 1.63
