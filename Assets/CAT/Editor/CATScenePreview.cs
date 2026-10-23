@@ -54,7 +54,7 @@ namespace CAT.Editor
             CardArtBuilder builder = Object.FindFirstObjectByType<CardArtBuilder>();
             if (builder != null)
             {
-                SpriteRenderer[] renderers = builder.GetComponentsInChildren<SpriteRenderer>(true);
+                MeshRenderer[] renderers = builder.GetComponentsInChildren<MeshRenderer>(true);
                 foreach (var r in renderers)
                 {
                     r.enabled = true;
@@ -65,14 +65,13 @@ namespace CAT.Editor
 
         public static void ApplySoloFilterToBuilder(CardArtBuilder builder)
         {
+            MeshRenderer[] renderers = builder.GetComponentsInChildren<MeshRenderer>(true);
+
             if (!ActiveSoloType.HasValue)
             {
-                SpriteRenderer[] allRenderers = builder.GetComponentsInChildren<SpriteRenderer>(true);
-                foreach (var r in allRenderers) r.enabled = true;
+                foreach (var r in renderers) r.enabled = true;
                 return;
             }
-
-            SpriteRenderer[] renderers = builder.GetComponentsInChildren<SpriteRenderer>(true);
 
             foreach (var r in renderers)
             {
@@ -95,7 +94,7 @@ namespace CAT.Editor
             return type switch
             {
                 LayerType.Background => $"BackgroundLayer{index + 1}",
-                LayerType.Subject => "Subject",
+                LayerType.Subject => $"SubjectLayer{index + 1}",
                 LayerType.Frame => "Frame",
                 LayerType.Foreground => $"ForegroundLayer{index + 1}",
                 LayerType.Nameplate => "Nameplate",

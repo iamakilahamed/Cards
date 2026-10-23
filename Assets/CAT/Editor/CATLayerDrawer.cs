@@ -40,6 +40,7 @@ namespace CAT.Editor
             SerializedProperty zOffsetProp = layerProp.FindPropertyRelative("ZOffset");
             SerializedProperty offsetProp = layerProp.FindPropertyRelative("Offset");
             SerializedProperty scaleProp = layerProp.FindPropertyRelative("Scale");
+            SerializedProperty resProp = layerProp.FindPropertyRelative("MeshResolution");
 
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
             EditorGUILayout.PropertyField(artworkProp, new GUIContent(label));
@@ -50,6 +51,7 @@ namespace CAT.Editor
                 EditorGUILayout.PropertyField(zOffsetProp, new GUIContent("Local Z-Offset (Depth)"));
                 EditorGUILayout.PropertyField(offsetProp, new GUIContent("Position Offset (X, Y)"));
                 EditorGUILayout.PropertyField(scaleProp, new GUIContent("Scale"));
+                EditorGUILayout.PropertyField(resProp, new GUIContent("Mesh Resolution"));
                 EditorGUI.indentLevel--;
             }
             EditorGUILayout.EndVertical();

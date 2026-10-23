@@ -22,43 +22,38 @@ namespace CAT.Editor
         private const float DEFAULT_CAMERA_DISTANCE = 75f;
         private float _cameraDistance = DEFAULT_CAMERA_DISTANCE;
 
-        // Clipboard for Template Copy/Paste
+        // Sculpting Module
+        private bool _isSculptMode = false;
+        private float _brushRadius = 1.5f;
+        private float _brushStrength = 0.5f;
+        private LayerType _sculptTargetType = LayerType.Subject;
+        private int _sculptTargetIndex = 0;
+        private bool _isSculptDragging = false;
+
+        // Clipboard
         private static float _copiedDepthMult = 1f;
         private static Vector2 _copiedSubjectOffset = Vector2.zero;
         private static float _copiedSubjectScale = 1f;
         private static bool _hasCopiedTemplate = false;
 
-        [MenuItem("Tools/Card Art Tool (CAT)/Card Art Dashboard")]
+        [MenuItem("Tools/Card Art Tool (CAT)")]
         public static void OpenWindow()
         {
-            CATWindow window = GetWindow<CATWindow>("CAT Dashboard");
+            CATWindow window = GetWindow<CATWindow>("Card Art Tool (CAT)");
             window.minSize = new Vector2(400, 600);
             window.Show();
         }
 
         private void OnEnable()
         {
+            wantsMouseMove = true;
             InitializePreview();
         }
 
         private void OnDisable()
         {
-            // Clean up our temporary materials to guarantee zero memory leaks
-            if (_previewTarget != null)
-            {
-                SpriteRenderer[] renderers = _previewTarget.GetComponentsInChildren<SpriteRenderer>(true);
-                foreach (var renderer in renderers)
-                {
-                    if (renderer.sharedMaterial != null)
-                    {
-                        DestroyImmediate(renderer.sharedMaterial);
-                    }
-                }
-                DestroyImmediate(_previewTarget);
-            }
-
-            if (_previewUtility != null)
-                _previewUtility.Cleanup();
+            if (_previewTarget != null) DestroyImmediate(_previewTarget);
+            if (_previewUtility != null) _previewUtility.Cleanup();
         }
 
         private void InitializePreview()
@@ -77,34 +72,60 @@ namespace CAT.Editor
             else
             {
                 _previewTarget = new GameObject("Virtual_CardPrefab");
-                _previewTarget.AddComponent<CardArtBuilder>();
+                CardArtBuilder builder = _previewTarget.AddComponent<CardArtBuilder>();
+                SetupVirtualBuilder(builder);
             }
 
             _previewTarget.hideFlags = HideFlags.HideAndDontSave;
             _previewUtility.AddSingleGO(_previewTarget);
             _previewBuilder = _previewTarget.GetComponentInChildren<CardArtBuilder>();
 
-            SpriteRenderer[] renderers = _previewTarget.GetComponentsInChildren<SpriteRenderer>(true);
-            foreach (var renderer in renderers)
-            {
-                if (renderer.sharedMaterial != null)
-                {
-                    // Create an isolated instance of the material just for this preview clone
-                    renderer.sharedMaterial = new Material(renderer.sharedMaterial);
-                }
-            }
-
             _previewUtility.camera.nearClipPlane = 1f;
             _previewUtility.camera.clearFlags = CameraClearFlags.SolidColor;
             _previewUtility.camera.backgroundColor = new Color(0.15f, 0.15f, 0.15f, 1f);
-
             _previewUtility.camera.transparencySortMode = TransparencySortMode.CustomAxis;
             _previewUtility.camera.transparencySortAxis = new Vector3(0, 0, 1);
         }
 
+        private void SetupVirtualBuilder(CardArtBuilder builder)
+        {
+            SerializedObject so = new SerializedObject(builder);
+
+            Transform CreateSlot(string n)
+            {
+                GameObject go = new GameObject(n);
+                go.transform.SetParent(builder.transform);
+                return go.transform;
+            }
+
+            so.FindProperty("_frameSlot").objectReferenceValue = CreateSlot("Frame");
+            so.FindProperty("_maskSlot").objectReferenceValue = CreateSlot("Mask");
+            so.FindProperty("_nameplateSlot").objectReferenceValue = CreateSlot("Nameplate");
+
+            void SetupArray(string propName, string prefix, int count)
+            {
+                SerializedProperty prop = so.FindProperty(propName);
+                prop.arraySize = count;
+                for (int i = 0; i < count; i++)
+                {
+                    prop.GetArrayElementAtIndex(i).objectReferenceValue = CreateSlot($"{prefix}{i + 1}");
+                }
+            }
+
+            SetupArray("_backgroundSlots", "BackgroundLayer", 3);
+            SetupArray("_subjectSlots", "SubjectLayer", 3);
+            SetupArray("_foregroundSlots", "ForegroundLayer", 3);
+
+            // Auto-assign custom materials to the virtual prefab
+            string[] maskGuids = AssetDatabase.FindAssets("M_CAT_Mask t:Material");
+            if (maskGuids.Length > 0) so.FindProperty("MaskMaterial").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(maskGuids[0]));
+            string[] artGuids = AssetDatabase.FindAssets("M_CAT_Art t:Material");
+            if (artGuids.Length > 0) so.FindProperty("ArtMaterial").objectReferenceValue = AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(artGuids[0]));
+            so.ApplyModifiedProperties();
+        }
+
         private void OnGUI()
         {
-            // Safety check for Domain Reloads
             if (_previewUtility == null) InitializePreview();
 
             DrawHeader();
@@ -115,22 +136,16 @@ namespace CAT.Editor
                 return;
             }
 
-            // Rebuild the serialized object if Unity wiped it during compilation
-            if (_serializedProfile == null)
-            {
-                SetProfile(_activeProfile);
-            }
-
+            if (_serializedProfile == null) SetProfile(_activeProfile);
             _serializedProfile.Update();
 
             DrawInteractivePreview();
+            DrawSculptingModule();
 
             _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
-
             DrawGlobalControls();
             EditorGUILayout.Space(10);
             DrawLayerSections();
-
             EditorGUILayout.EndScrollView();
 
             if (_serializedProfile.hasModifiedProperties)
@@ -139,41 +154,53 @@ namespace CAT.Editor
                 if (_previewBuilder != null)
                 {
                     _previewBuilder.BuildArt(_activeProfile);
+                    CATScenePreview.ApplySoloFilterToBuilder(_previewBuilder);
                 }
             }
         }
 
         private void DrawInteractivePreview()
         {
-            float dynamicHeight = Mathf.Max(200f, position.height * 0.5f);
+            float dynamicHeight = Mathf.Max(200f, position.height * 0.45f);
             Rect previewRect = GUILayoutUtility.GetRect(0f, dynamicHeight, GUILayout.ExpandWidth(true));
-
             if (previewRect.width <= 0 || previewRect.height <= 0) return;
 
-            // SAFETY SYNC: Force the virtual preview prefab to aggressively update and match the profile
-            // This prevents the Live Preview from getting "stuck" when you edit assets externally
-            if (_previewBuilder != null && _activeProfile != null)
-            {
-                _previewBuilder.BuildArt(_activeProfile);
-
-                CATScenePreview.ApplySoloFilterToBuilder(_previewBuilder);
-            }
-
             Event evt = Event.current;
+            bool isAlt = evt.modifiers == EventModifiers.Alt;
+            int controlID = GUIUtility.GetControlID("PreviewViewport".GetHashCode(), FocusType.Passive);
+
             if (previewRect.Contains(evt.mousePosition))
             {
-                if (evt.type == EventType.MouseDrag)
+                if (evt.type == EventType.MouseMove && _isSculptMode)
                 {
-                    if (evt.button == 0) // Left click: Rotate
+                    Repaint();
+                }
+                else if (evt.type == EventType.MouseDown)
+                {
+                    GUIUtility.hotControl = controlID;
+                    if (evt.button == 0 && !isAlt && _isSculptMode)
+                    {
+                        _isSculptDragging = true;
+                        HandleSculptInput(previewRect, evt);
+                        evt.Use();
+                    }
+                }
+                else if (evt.type == EventType.MouseDrag)
+                {
+                    if (evt.button == 0 && !isAlt && _isSculptMode && _isSculptDragging)
+                    {
+                        HandleSculptInput(previewRect, evt);
+                        evt.Use();
+                    }
+                    else if ((evt.button == 0 && isAlt) || (evt.button == 0 && !_isSculptMode))
                     {
                         _dragRotation.x -= evt.delta.y * 0.5f;
                         _dragRotation.y -= evt.delta.x * 0.5f;
                         evt.Use();
                         Repaint();
                     }
-                    else if (evt.button == 2) // Middle click: Pan
+                    else if (evt.button == 2)
                     {
-                        // Adjust pan sensitivity based on zoom level for consistent feel
                         float panSpeed = _cameraDistance * 0.002f;
                         _cameraPan.x -= evt.delta.x * panSpeed;
                         _cameraPan.y += evt.delta.y * panSpeed;
@@ -181,7 +208,7 @@ namespace CAT.Editor
                         Repaint();
                     }
                 }
-                else if (evt.type == EventType.ScrollWheel) // Scroll: Zoom
+                else if (evt.type == EventType.ScrollWheel)
                 {
                     _cameraDistance += evt.delta.y * 0.5f;
                     _cameraDistance = Mathf.Clamp(_cameraDistance, 5f, 150f);
@@ -190,13 +217,23 @@ namespace CAT.Editor
                 }
             }
 
-            // Apply target rotation
+            if (evt.type == EventType.MouseUp && GUIUtility.hotControl == controlID)
+            {
+                GUIUtility.hotControl = 0;
+                if (_isSculptDragging)
+                {
+                    _isSculptDragging = false;
+                    EditorUtility.SetDirty(_activeProfile);
+                    _previewBuilder.BuildArt(_activeProfile);
+                }
+                evt.Use();
+            }
+
             if (_previewTarget != null)
             {
                 _previewTarget.transform.rotation = Quaternion.Euler(_dragRotation.x, _dragRotation.y, 0f);
             }
 
-            // Apply dynamic camera position and clip planes
             _previewUtility.camera.transform.position = new Vector3(_cameraPan.x, _cameraPan.y, -_cameraDistance);
             _previewUtility.camera.farClipPlane = _cameraDistance + 50f;
 
@@ -206,8 +243,41 @@ namespace CAT.Editor
 
             GUI.DrawTexture(previewRect, previewTexture);
 
-            // Overlays
-            GUI.Label(new Rect(previewRect.x + 5, previewRect.y + 5, 300, 20), "Live 3D Viewport (L-Click Rotate, M-Click Pan, Scroll Zoom)", EditorStyles.boldLabel);
+            if (_isSculptMode && previewRect.Contains(evt.mousePosition) && evt.type == EventType.Repaint)
+            {
+                Transform targetSlot = GetTargetSlotTransform();
+                if (targetSlot != null)
+                {
+                    Vector2 localMouse = evt.mousePosition - previewRect.position;
+                    localMouse.y = previewRect.height - localMouse.y;
+                    Ray ray = _previewUtility.camera.ScreenPointToRay(new Vector3(localMouse.x, localMouse.y, 0));
+                    Plane layerPlane = new Plane(targetSlot.forward, targetSlot.position);
+
+                    if (layerPlane.Raycast(ray, out float enter))
+                    {
+                        Vector3 worldHit = ray.GetPoint(enter);
+                        float dynamicRadius = GetDynamicBrushRadius(worldHit);
+
+                        int segments = 36;
+                        Vector3[] guiPoints = new Vector3[segments + 1];
+
+                        for (int i = 0; i <= segments; i++)
+                        {
+                            float angle = i * Mathf.PI * 2f / segments;
+                            Vector3 offset = (targetSlot.right * Mathf.Cos(angle) + targetSlot.up * Mathf.Sin(angle)) * dynamicRadius;
+                            Vector3 point3D = worldHit + offset;
+
+                            Vector3 screenPt = _previewUtility.camera.WorldToScreenPoint(point3D);
+                            guiPoints[i] = new Vector3(previewRect.x + screenPt.x, previewRect.y + previewRect.height - screenPt.y, 0);
+                        }
+
+                        Handles.color = evt.shift ? new Color(1f, 0.2f, 0.2f, 0.8f) : new Color(0.2f, 0.8f, 1f, 0.8f);
+                        Handles.DrawPolyLine(guiPoints);
+                    }
+                }
+            }
+
+            GUI.Label(new Rect(previewRect.x + 5, previewRect.y + 5, 300, 20), _isSculptMode ? "SCULPT MODE ACTIVE (Alt+Click to Rotate)" : "Live 3D Viewport", EditorStyles.boldLabel);
 
             if (GUI.Button(new Rect(previewRect.x + previewRect.width - 85, previewRect.y + 5, 80, 20), "Recenter"))
             {
@@ -216,6 +286,136 @@ namespace CAT.Editor
                 _cameraDistance = DEFAULT_CAMERA_DISTANCE;
                 Repaint();
             }
+        }
+
+        private void HandleSculptInput(Rect previewRect, Event evt)
+        {
+            CardLayer targetLayer = GetSelectedSculptLayer();
+            if (targetLayer == null || targetLayer.Artwork == null) return;
+
+            Transform targetSlot = GetTargetSlotTransform();
+            if (targetSlot == null) return;
+
+            MeshFilter filter = targetSlot.GetComponent<MeshFilter>();
+            if (filter == null || filter.sharedMesh == null) return;
+
+            Vector2 localMouse = evt.mousePosition - previewRect.position;
+            localMouse.y = previewRect.height - localMouse.y;
+            Ray ray = _previewUtility.camera.ScreenPointToRay(new Vector3(localMouse.x, localMouse.y, 0));
+
+            Plane layerPlane = new Plane(targetSlot.forward, targetSlot.position);
+            if (layerPlane.Raycast(ray, out float enter))
+            {
+                Vector3 worldHit = ray.GetPoint(enter);
+                float dynamicRadius = GetDynamicBrushRadius(worldHit);
+                SculptVertices(targetLayer, targetSlot, filter.sharedMesh, worldHit, evt.shift, dynamicRadius);
+            }
+        }
+
+        private void SculptVertices(CardLayer layer, Transform slot, Mesh mesh, Vector3 worldHit, bool isPushing, float dynamicRadius)
+        {
+            Vector3[] vertices = mesh.vertices;
+            if (layer.VertexDepths == null || layer.VertexDepths.Length != vertices.Length) layer.VertexDepths = new float[vertices.Length];
+
+            float dirMult = isPushing ? -1f : 1f;
+            float str = _brushStrength * 0.05f;
+            bool modified = false;
+
+            for (int i = 0; i < vertices.Length; i++)
+            {
+                Vector3 worldVert = slot.TransformPoint(vertices[i]);
+                float dist = Vector3.Distance(worldVert, worldHit);
+
+                if (dist < _brushRadius)
+                {
+                    float falloff = Mathf.SmoothStep(0f, 1f, 1f - (dist / dynamicRadius));
+                    layer.VertexDepths[i] += str * dirMult * falloff;
+                    vertices[i].z = layer.VertexDepths[i];
+                    modified = true;
+                }
+            }
+
+            if (modified)
+            {
+                mesh.vertices = vertices;
+                mesh.RecalculateNormals();
+                Repaint();
+            }
+        }
+
+        private void DrawSculptingModule()
+        {
+            EditorGUILayout.BeginVertical("box");
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("2.5D Sculpting Module", EditorStyles.boldLabel);
+            GUI.backgroundColor = _isSculptMode ? Color.green : Color.white;
+            if (GUILayout.Button(_isSculptMode ? "Sculpt Mode: ON" : "Sculpt Mode: OFF", GUILayout.Height(25))) _isSculptMode = !_isSculptMode;
+            GUI.backgroundColor = Color.white;
+            EditorGUILayout.EndHorizontal();
+
+            if (_isSculptMode)
+            {
+                EditorGUILayout.HelpBox("Left-Click & Drag to Pull. Shift + Left-Click to Push. Alt+Click to Rotate Camera.", MessageType.Info);
+                _sculptTargetType = (LayerType)EditorGUILayout.EnumPopup("Target Layer Type", _sculptTargetType);
+
+                int maxIndex = 0;
+                if (_activeProfile != null)
+                {
+                    maxIndex = _sculptTargetType switch
+                    {
+                        LayerType.Background => (_activeProfile.BackgroundLayers?.Length ?? 1) - 1,
+                        LayerType.Subject => (_activeProfile.SubjectLayers?.Length ?? 1) - 1,
+                        LayerType.Foreground => (_activeProfile.ForegroundLayers?.Length ?? 1) - 1,
+                        _ => 0
+                    };
+                }
+                _sculptTargetIndex = EditorGUILayout.IntSlider("Target Layer Index", _sculptTargetIndex, 0, Mathf.Max(0, maxIndex));
+
+                EditorGUI.BeginChangeCheck();
+                _brushRadius = EditorGUILayout.Slider("Brush Radius", _brushRadius, 0.1f, 10f);
+                _brushStrength = EditorGUILayout.Slider("Brush Strength", _brushStrength, 0.1f, 5f);
+                if (EditorGUI.EndChangeCheck() && _isSculptMode) Repaint();
+            }
+            EditorGUILayout.EndVertical();
+        }
+
+        private CardLayer GetSelectedSculptLayer()
+        {
+            if (_activeProfile == null) return null;
+            return _sculptTargetType switch
+            {
+                LayerType.Background => (_activeProfile.BackgroundLayers.Length > _sculptTargetIndex) ? _activeProfile.BackgroundLayers[_sculptTargetIndex] : null,
+                LayerType.Subject => (_activeProfile.SubjectLayers.Length > _sculptTargetIndex) ? _activeProfile.SubjectLayers[_sculptTargetIndex] : null,
+                LayerType.Foreground => (_activeProfile.ForegroundLayers.Length > _sculptTargetIndex) ? _activeProfile.ForegroundLayers[_sculptTargetIndex] : null,
+                LayerType.Frame => _activeProfile.FrameLayer,
+                LayerType.Nameplate => _activeProfile.NameplateLayer,
+                _ => null
+            };
+        }
+
+        private Transform GetTargetSlotTransform()
+        {
+            if (_previewTarget == null) return null;
+            string n = _sculptTargetType switch
+            {
+                LayerType.Background => $"BackgroundLayer{_sculptTargetIndex + 1}",
+                LayerType.Subject => $"SubjectLayer{_sculptTargetIndex + 1}",
+                LayerType.Foreground => $"ForegroundLayer{_sculptTargetIndex + 1}",
+                LayerType.Frame => "Frame",
+                LayerType.Nameplate => "Nameplate",
+                _ => ""
+            };
+
+            Transform target = _previewTarget.transform.Find("VisualRoot/" + n);
+            if (target == null) target = _previewTarget.transform.Find(n);
+
+            return target;
+        }
+
+        private float GetDynamicBrushRadius(Vector3 worldHit)
+        {
+            float dist = Vector3.Distance(_previewUtility.camera.transform.position, worldHit);
+            return _brushRadius * (dist * 0.015f);
         }
 
         private void DrawHeader()
@@ -236,15 +436,9 @@ namespace CAT.Editor
             if (_activeProfile != null)
             {
                 _serializedProfile = new SerializedObject(_activeProfile);
-                if (_previewBuilder != null)
-                {
-                    _previewBuilder.BuildArt(_activeProfile);
-                }
+                if (_previewBuilder != null) _previewBuilder.BuildArt(_activeProfile);
             }
-            else
-            {
-                _serializedProfile = null;
-            }
+            else _serializedProfile = null;
         }
 
         private void DrawGlobalControls()
@@ -292,7 +486,7 @@ namespace CAT.Editor
             CATLayerDrawer.DrawArraySection("Foreground Layers", _serializedProfile.FindProperty("ForegroundLayers"), LayerType.Foreground);
 
             EditorGUILayout.BeginVertical("box");
-            EditorGUILayout.LabelField("Frame & Subject", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Frame Layer", EditorStyles.boldLabel);
             CATLayerDrawer.DrawSingleLayer("Frame Layer (Anchor)", _serializedProfile.FindProperty("FrameLayer"));
             EditorGUILayout.PropertyField(_serializedProfile.FindProperty("MaskLayer"), new GUIContent("Mask Layer (Window Cutout)"));
             CATLayerDrawer.DrawSingleLayer("Nameplate Layer", _serializedProfile.FindProperty("NameplateLayer"));

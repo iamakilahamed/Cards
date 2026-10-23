@@ -7,9 +7,12 @@ namespace CAT.Data
     public class CardLayer
     {
         public Sprite Artwork;
-        [Range(-5f, 5f)] public float ZOffset;
+        [Range(-5f, 5f)] public float ZOffset = 0f;
         public Vector2 Offset = Vector2.zero;
         public float Scale = 1f;
+        [Range(1, 50)] public int MeshResolution = 1;
+
+        [HideInInspector] public float[] VertexDepths;
     }
 
     [CreateAssetMenu(fileName = "New Card Art", menuName = "Card Art Tool (CAT)/Card Art Profile")]
