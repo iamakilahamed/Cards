@@ -29,6 +29,8 @@ namespace CAT.Editor
         private LayerType _sculptTargetType = LayerType.Subject;
         private int _sculptTargetIndex = 0;
         private bool _isSculptDragging = false;
+        private bool _forceWireframe = false;
+        private Material _wireframeMaterial;
 
         // Clipboard
         private static float _copiedDepthMult = 1f;
@@ -54,6 +56,7 @@ namespace CAT.Editor
         {
             if (_previewTarget != null) DestroyImmediate(_previewTarget);
             if (_previewUtility != null) _previewUtility.Cleanup();
+            if (_wireframeMaterial != null) DestroyImmediate(_wireframeMaterial);
         }
 
         private void InitializePreview()
@@ -171,16 +174,17 @@ namespace CAT.Editor
 
             if (previewRect.Contains(evt.mousePosition))
             {
-                if (evt.type == EventType.MouseMove && _isSculptMode)
-                {
-                    Repaint();
-                }
+                if (evt.type == EventType.MouseMove && _isSculptMode) Repaint();
                 else if (evt.type == EventType.MouseDown)
                 {
                     GUIUtility.hotControl = controlID;
                     if (evt.button == 0 && !isAlt && _isSculptMode)
                     {
                         _isSculptDragging = true;
+
+                        // Register the Undo snapshot before applying any depth changes
+                        Undo.RecordObject(_activeProfile, "CAT Sculpt Stroke");
+
                         HandleSculptInput(previewRect, evt);
                         evt.Use();
                     }
@@ -229,62 +233,66 @@ namespace CAT.Editor
                 evt.Use();
             }
 
-            if (_previewTarget != null)
-            {
-                _previewTarget.transform.rotation = Quaternion.Euler(_dragRotation.x, _dragRotation.y, 0f);
-            }
+            if (_previewTarget != null) _previewTarget.transform.rotation = Quaternion.Euler(_dragRotation.x, _dragRotation.y, 0f);
 
             _previewUtility.camera.transform.position = new Vector3(_cameraPan.x, _cameraPan.y, -_cameraDistance);
             _previewUtility.camera.farClipPlane = _cameraDistance + 50f;
 
             _previewUtility.BeginPreview(previewRect, GUIStyle.none);
             _previewUtility.Render();
-            Texture previewTexture = _previewUtility.EndPreview();
 
-            GUI.DrawTexture(previewRect, previewTexture);
-
-            if (_isSculptMode && previewRect.Contains(evt.mousePosition) && evt.type == EventType.Repaint)
+            // Bake lines directly into the 3D Render Texture matrix
+            bool isHovering = previewRect.Contains(evt.mousePosition);
+            if (_isSculptMode && evt.type == EventType.Repaint && (isHovering || _forceWireframe))
             {
                 Transform targetSlot = GetTargetSlotTransform();
                 if (targetSlot != null)
                 {
-                    Vector2 localMouse = evt.mousePosition - previewRect.position;
-                    localMouse.y = previewRect.height - localMouse.y;
-                    Ray ray = _previewUtility.camera.ScreenPointToRay(new Vector3(localMouse.x, localMouse.y, 0));
-                    Plane layerPlane = new Plane(targetSlot.forward, targetSlot.position);
-
-                    if (layerPlane.Raycast(ray, out float enter))
+                    if (_wireframeMaterial == null)
                     {
-                        Vector3 worldHit = ray.GetPoint(enter);
-                        float dynamicRadius = GetDynamicBrushRadius(worldHit);
-
-                        int segments = 36;
-                        Vector3[] guiPoints = new Vector3[segments + 1];
-
-                        for (int i = 0; i <= segments; i++)
-                        {
-                            float angle = i * Mathf.PI * 2f / segments;
-                            Vector3 offset = (targetSlot.right * Mathf.Cos(angle) + targetSlot.up * Mathf.Sin(angle)) * dynamicRadius;
-                            Vector3 point3D = worldHit + offset;
-
-                            Vector3 screenPt = _previewUtility.camera.WorldToScreenPoint(point3D);
-                            guiPoints[i] = new Vector3(previewRect.x + screenPt.x, previewRect.y + previewRect.height - screenPt.y, 0);
-                        }
-
-                        Handles.color = evt.shift ? new Color(1f, 0.2f, 0.2f, 0.8f) : new Color(0.2f, 0.8f, 1f, 0.8f);
-                        Handles.DrawPolyLine(guiPoints);
+                        _wireframeMaterial = new Material(Shader.Find("Hidden/Internal-Colored"));
+                        _wireframeMaterial.hideFlags = HideFlags.HideAndDontSave;
                     }
+                    _wireframeMaterial.SetPass(0);
+
+                    GL.PushMatrix();
+                    GL.LoadProjectionMatrix(_previewUtility.camera.projectionMatrix);
+                    GL.modelview = _previewUtility.camera.worldToCameraMatrix;
+
+                    MeshFilter filter = targetSlot.GetComponent<MeshFilter>();
+                    if (filter != null && filter.sharedMesh != null) DrawGLWireframe(filter.sharedMesh, targetSlot);
+
+                    if (isHovering)
+                    {
+                        Vector2 localMouse = evt.mousePosition - previewRect.position;
+                        Vector3 viewportPoint = new Vector3(
+                            localMouse.x / previewRect.width,
+                            1f - (localMouse.y / previewRect.height),
+                            0f
+                        );
+                        Ray ray = _previewUtility.camera.ViewportPointToRay(viewportPoint);
+                        Plane layerPlane = new Plane(targetSlot.forward, targetSlot.position);
+
+                        if (layerPlane.Raycast(ray, out float enter))
+                        {
+                            Vector3 worldHit = ray.GetPoint(enter);
+                            float dynamicRadius = GetDynamicBrushRadius(worldHit);
+                            Color brushColor = evt.shift ? new Color(1f, 0.2f, 0.2f, 0.8f) : new Color(0.2f, 0.8f, 1f, 0.8f);
+                            DrawGLBrush(worldHit, targetSlot, dynamicRadius, brushColor);
+                        }
+                    }
+                    GL.PopMatrix();
                 }
             }
+
+            Texture previewTexture = _previewUtility.EndPreview();
+            GUI.DrawTexture(previewRect, previewTexture);
 
             GUI.Label(new Rect(previewRect.x + 5, previewRect.y + 5, 300, 20), _isSculptMode ? "SCULPT MODE ACTIVE (Alt+Click to Rotate)" : "Live 3D Viewport", EditorStyles.boldLabel);
 
             if (GUI.Button(new Rect(previewRect.x + previewRect.width - 85, previewRect.y + 5, 80, 20), "Recenter"))
             {
-                _dragRotation = Vector2.zero;
-                _cameraPan = Vector2.zero;
-                _cameraDistance = DEFAULT_CAMERA_DISTANCE;
-                Repaint();
+                _dragRotation = Vector2.zero; _cameraPan = Vector2.zero; _cameraDistance = DEFAULT_CAMERA_DISTANCE; Repaint();
             }
         }
 
@@ -300,8 +308,12 @@ namespace CAT.Editor
             if (filter == null || filter.sharedMesh == null) return;
 
             Vector2 localMouse = evt.mousePosition - previewRect.position;
-            localMouse.y = previewRect.height - localMouse.y;
-            Ray ray = _previewUtility.camera.ScreenPointToRay(new Vector3(localMouse.x, localMouse.y, 0));
+            Vector3 viewportPoint = new Vector3(
+                localMouse.x / previewRect.width,
+                1f - (localMouse.y / previewRect.height),
+                0f
+            );
+            Ray ray = _previewUtility.camera.ViewportPointToRay(viewportPoint);
 
             Plane layerPlane = new Plane(targetSlot.forward, targetSlot.position);
             if (layerPlane.Raycast(ray, out float enter))
@@ -356,6 +368,33 @@ namespace CAT.Editor
             if (_isSculptMode)
             {
                 EditorGUILayout.HelpBox("Left-Click & Drag to Pull. Shift + Left-Click to Push. Alt+Click to Rotate Camera.", MessageType.Info);
+
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button("Undo Sculpt (Ctrl+Z)"))
+                {
+                    Undo.PerformUndo();
+                    if (_previewBuilder != null) _previewBuilder.BuildArt(_activeProfile);
+                    Repaint();
+                    GUIUtility.ExitGUI();
+                }
+                if (GUILayout.Button("Reset Layer (Flatten)"))
+                {
+                    CardLayer targetLayer = GetSelectedSculptLayer();
+                    if (targetLayer != null && targetLayer.VertexDepths != null)
+                    {
+                        Undo.RecordObject(_activeProfile, "Flatten Sculpt Layer");
+
+                        // Instantly zero out all depths for the active layer
+                        System.Array.Clear(targetLayer.VertexDepths, 0, targetLayer.VertexDepths.Length);
+                        EditorUtility.SetDirty(_activeProfile);
+
+                        if (_previewBuilder != null) _previewBuilder.BuildArt(_activeProfile);
+                        Repaint();
+                        GUIUtility.ExitGUI();
+                    }
+                }
+                EditorGUILayout.EndHorizontal();
+
                 _sculptTargetType = (LayerType)EditorGUILayout.EnumPopup("Target Layer Type", _sculptTargetType);
 
                 int maxIndex = 0;
@@ -374,6 +413,7 @@ namespace CAT.Editor
                 EditorGUI.BeginChangeCheck();
                 _brushRadius = EditorGUILayout.Slider("Brush Radius", _brushRadius, 0.1f, 10f);
                 _brushStrength = EditorGUILayout.Slider("Brush Strength", _brushStrength, 0.1f, 5f);
+                _forceWireframe = EditorGUILayout.Toggle("Force Wireframe", _forceWireframe);
                 if (EditorGUI.EndChangeCheck() && _isSculptMode) Repaint();
             }
             EditorGUILayout.EndVertical();
@@ -416,6 +456,47 @@ namespace CAT.Editor
         {
             float dist = Vector3.Distance(_previewUtility.camera.transform.position, worldHit);
             return _brushRadius * (dist * 0.015f);
+        }
+
+        private void DrawGLWireframe(Mesh mesh, Transform slot)
+        {
+            GL.Begin(GL.LINES);
+            GL.Color(new Color(0.2f, 1f, 0.2f, 0.4f));
+
+            Vector3[] vertices = mesh.vertices;
+            int[] triangles = mesh.triangles;
+
+            for (int i = 0; i < triangles.Length; i += 3)
+            {
+                Vector3 v0 = slot.TransformPoint(vertices[triangles[i]]);
+                Vector3 v1 = slot.TransformPoint(vertices[triangles[i + 1]]);
+                Vector3 v2 = slot.TransformPoint(vertices[triangles[i + 2]]);
+
+                GL.Vertex(v0); GL.Vertex(v1);
+                GL.Vertex(v1); GL.Vertex(v2);
+                GL.Vertex(v2); GL.Vertex(v0);
+            }
+            GL.End();
+        }
+
+        private void DrawGLBrush(Vector3 center, Transform slot, float radius, Color color)
+        {
+            GL.Begin(GL.LINES);
+            GL.Color(color);
+
+            int segments = 36;
+            for (int i = 0; i < segments; i++)
+            {
+                float a1 = i * Mathf.PI * 2f / segments;
+                float a2 = (i + 1) * Mathf.PI * 2f / segments;
+
+                Vector3 p1 = center + (slot.right * Mathf.Cos(a1) + slot.up * Mathf.Sin(a1)) * radius;
+                Vector3 p2 = center + (slot.right * Mathf.Cos(a2) + slot.up * Mathf.Sin(a2)) * radius;
+
+                GL.Vertex(p1);
+                GL.Vertex(p2);
+            }
+            GL.End();
         }
 
         private void DrawHeader()
