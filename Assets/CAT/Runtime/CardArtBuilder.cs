@@ -26,9 +26,12 @@ namespace CAT.Runtime
         private int _uniqueStencilID;
 
         // Cache materials to prevent Editor memory leaks
-        private Material _instancedMaskMat;
-        private Material _maskedArtMat;
-        private Material _unmaskedArtMat;
+        private Material _maskMat;
+        private Material _bgMat;
+        private Material _frameMat;
+        private Material _subjectMat;
+        private Material _fgMat;
+        private Material _nameplateMat;
         private MaterialPropertyBlock _propBlock;
 
         private void OnEnable()
@@ -39,9 +42,12 @@ namespace CAT.Runtime
 
         private void OnDisable()
         {
-            if (_instancedMaskMat != null) DestroyImmediate(_instancedMaskMat);
-            if (_maskedArtMat != null) DestroyImmediate(_maskedArtMat);
-            if (_unmaskedArtMat != null) DestroyImmediate(_unmaskedArtMat);
+            if (_maskMat != null) DestroyImmediate(_maskMat);
+            if (_bgMat != null) DestroyImmediate(_bgMat);
+            if (_frameMat != null) DestroyImmediate(_frameMat);
+            if (_subjectMat != null) DestroyImmediate(_subjectMat);
+            if (_fgMat != null) DestroyImmediate(_fgMat);
+            if (_nameplateMat != null) DestroyImmediate(_nameplateMat);
         }
 
         /// <summary>
@@ -57,21 +63,38 @@ namespace CAT.Runtime
             float zStep = profile.BaseZStep;
 
             // Initialize or update cached materials
-            if (_instancedMaskMat == null) _instancedMaskMat = new Material(MaskMaterial);
-            _instancedMaskMat.SetInt("_StencilID", _uniqueStencilID);
+            if (_maskMat == null) _maskMat = new Material(MaskMaterial);
+            _maskMat.SetInt("_StencilID", _uniqueStencilID);
 
-            if (_maskedArtMat == null) _maskedArtMat = new Material(ArtMaterial);
-            _maskedArtMat.SetInt("_StencilID", _uniqueStencilID);
-            _maskedArtMat.SetInt("_StencilComp", 3); // Equal
+            if (_bgMat == null) _bgMat = new Material(ArtMaterial);
+            _bgMat.SetInt("_StencilID", _uniqueStencilID);
+            _bgMat.SetInt("_StencilComp", 3); // Equal
+            _bgMat.renderQueue = 3000;
 
-            if (_unmaskedArtMat == null) _unmaskedArtMat = new Material(ArtMaterial);
-            _unmaskedArtMat.SetInt("_StencilID", _uniqueStencilID);
-            _unmaskedArtMat.SetInt("_StencilComp", 8); // Always
+            if (_frameMat == null) _frameMat = new Material(ArtMaterial);
+            _frameMat.SetInt("_StencilID", _uniqueStencilID);
+            _frameMat.SetInt("_StencilComp", 8); // Always
+            _frameMat.renderQueue = 3010;
+
+            if (_subjectMat == null) _subjectMat = new Material(ArtMaterial);
+            _subjectMat.SetInt("_StencilID", _uniqueStencilID);
+            _subjectMat.SetInt("_StencilComp", 8); // Always
+            _subjectMat.renderQueue = 3020;
+
+            if (_fgMat == null) _fgMat = new Material(ArtMaterial);
+            _fgMat.SetInt("_StencilID", _uniqueStencilID);
+            _fgMat.SetInt("_StencilComp", 8); // Always
+            _fgMat.renderQueue = 3030;
+
+            if (_nameplateMat == null) _nameplateMat = new Material(ArtMaterial);
+            _nameplateMat.SetInt("_StencilID", _uniqueStencilID);
+            _nameplateMat.SetInt("_StencilComp", 8); // Always
+            _nameplateMat.renderQueue = 3100;
 
             // Build Mask
             if (profile.MaskLayer != null && _maskSlot != null)
             {
-                ApplyMeshLayer(_maskSlot, profile.MaskLayer, 0, Vector2.zero, 1f, 1, null, _instancedMaskMat);
+                ApplyMeshLayer(_maskSlot, profile.MaskLayer, 0, Vector2.zero, 1f, 1, null, _maskMat);
             }
 
             // Build Masked Backgrounds
@@ -81,7 +104,7 @@ namespace CAT.Runtime
                 {
                     CardLayer layer = profile.BackgroundLayers[i];
                     float finalZ = ((i + 1) * zStep * depthMult) + layer.ZOffset;
-                    ApplyMeshLayer(_backgroundSlots[i], layer.Artwork, finalZ, layer.Offset, layer.Scale, layer.MeshResolution, layer.VertexDepths, _maskedArtMat);
+                    ApplyMeshLayer(_backgroundSlots[i], layer.Artwork, finalZ, layer.Offset, layer.Scale, layer.MeshResolution, layer.VertexDepths, _bgMat);
                 }
             }
 
@@ -89,7 +112,7 @@ namespace CAT.Runtime
             if (profile.FrameLayer != null && _frameSlot != null)
             {
                 float frameZ = profile.FrameLayer.ZOffset;
-                ApplyMeshLayer(_frameSlot, profile.FrameLayer.Artwork, frameZ, profile.FrameLayer.Offset, profile.FrameLayer.Scale, profile.FrameLayer.MeshResolution, profile.FrameLayer.VertexDepths, _unmaskedArtMat);
+                ApplyMeshLayer(_frameSlot, profile.FrameLayer.Artwork, frameZ, profile.FrameLayer.Offset, profile.FrameLayer.Scale, profile.FrameLayer.MeshResolution, profile.FrameLayer.VertexDepths, _frameMat);
             }
 
             // Subjects
@@ -99,7 +122,7 @@ namespace CAT.Runtime
                 {
                     CardLayer layer = profile.SubjectLayers[i];
                     float finalZ = (-0.1f * (i + 1) * zStep * depthMult) + layer.ZOffset;
-                    ApplyMeshLayer(_subjectSlots[i], layer.Artwork, finalZ, layer.Offset, layer.Scale, layer.MeshResolution, layer.VertexDepths, _unmaskedArtMat);
+                    ApplyMeshLayer(_subjectSlots[i], layer.Artwork, finalZ, layer.Offset, layer.Scale, layer.MeshResolution, layer.VertexDepths, _subjectMat);
                 }
             }
 
@@ -110,7 +133,7 @@ namespace CAT.Runtime
                 {
                     CardLayer layer = profile.ForegroundLayers[i];
                     float finalZ = (-(i + 1) * zStep * depthMult) + layer.ZOffset;
-                    ApplyMeshLayer(_foregroundSlots[i], layer.Artwork, finalZ, layer.Offset, layer.Scale, layer.MeshResolution, layer.VertexDepths, _unmaskedArtMat);
+                    ApplyMeshLayer(_foregroundSlots[i], layer.Artwork, finalZ, layer.Offset, layer.Scale, layer.MeshResolution, layer.VertexDepths, _fgMat);
                 }
             }
 
@@ -119,7 +142,7 @@ namespace CAT.Runtime
             {
                 int totalFg = profile.ForegroundLayers?.Length ?? 0;
                 float nameplateFinalZ = (-(totalFg + 2) * zStep * depthMult) + profile.NameplateLayer.ZOffset;
-                ApplyMeshLayer(_nameplateSlot, profile.NameplateLayer.Artwork, nameplateFinalZ, profile.NameplateLayer.Offset, profile.NameplateLayer.Scale, profile.NameplateLayer.MeshResolution, profile.NameplateLayer.VertexDepths, _unmaskedArtMat);
+                ApplyMeshLayer(_nameplateSlot, profile.NameplateLayer.Artwork, nameplateFinalZ, profile.NameplateLayer.Offset, profile.NameplateLayer.Scale, profile.NameplateLayer.MeshResolution, profile.NameplateLayer.VertexDepths, _nameplateMat);
             }
         }
 
