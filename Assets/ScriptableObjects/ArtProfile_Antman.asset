@@ -15,17 +15,17 @@ MonoBehaviour:
   BaseZStep: 0.05
   GlobalDepthMultiplier: 1
   BackgroundLayers:
-  - Artwork: {fileID: 21300000, guid: 3db63e78b881b7946a64881ba813fa65, type: 3}
-    ZOffset: 0
+  - Artwork: {fileID: 21300000, guid: 643bc11fa980e1348bc3a9762f3ff794, type: 3}
+    ZOffset: 0.5
     Offset: {x: 0, y: 0}
     Scale: 1
     MeshResolution: 1
     VertexDepths: []
   SubjectLayers:
-  - Artwork: {fileID: 21300000, guid: 379b1bdde7e3d2345992c6910693cc9b, type: 3}
-    ZOffset: 0
-    Offset: {x: 0, y: 0}
-    Scale: 1.22
+  - Artwork: {fileID: 21300000, guid: 726ba84661e760441a8d3dd4a9509f4c, type: 3}
+    ZOffset: -0.5
+    Offset: {x: 0, y: 0.75}
+    Scale: 1.12
     MeshResolution: 1
     VertexDepths:
     - 0
@@ -42,9 +42,9 @@ MonoBehaviour:
   MaskLayer: {fileID: 21300000, guid: 61297085d073cc049a5c28da8dc7887d, type: 3}
   ForegroundLayers: []
   NameplateLayer:
-    Artwork: {fileID: 21300000, guid: fe20e139c50eb1349a6a0fad9275f2fb, type: 3}
-    ZOffset: 0
-    Offset: {x: 0, y: 3.76}
-    Scale: 1.63
+    Artwork: {fileID: 21300000, guid: f4d610e30c81b424a8f74a6bfd0368e3, type: 3}
+    ZOffset: -1
+    Offset: {x: 0, y: 3}
+    Scale: 1.4
     MeshResolution: 1
     VertexDepths: []
