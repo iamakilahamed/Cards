@@ -1,0 +1,50 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 92688eea14d03f24da2f1b14e7e3a79e, type: 3}
+  m_Name: ArtProfile_DrDoom
+  m_EditorClassIdentifier: CAT.Runtime::CAT.Data.CardArtProfile
+  BaseZStep: 0.05
+  GlobalDepthMultiplier: 1
+  BackgroundLayers:
+  - Artwork: {fileID: 21300000, guid: 3db63e78b881b7946a64881ba813fa65, type: 3}
+    ZOffset: 0
+    Offset: {x: 0, y: 0}
+    Scale: 1
+    MeshResolution: 1
+    VertexDepths: []
+  SubjectLayers:
+  - Artwork: {fileID: 21300000, guid: 379b1bdde7e3d2345992c6910693cc9b, type: 3}
+    ZOffset: 0
+    Offset: {x: 0, y: 0}
+    Scale: 1.22
+    MeshResolution: 1
+    VertexDepths:
+    - 0
+    - 0
+    - 0
+    - 0
+  FrameLayer:
+    Artwork: {fileID: 21300000, guid: a0bf74ccdafc46e469f61ea7b9e39158, type: 3}
+    ZOffset: 0
+    Offset: {x: 0, y: 0}
+    Scale: 1
+    MeshResolution: 1
+    VertexDepths: []
+  MaskLayer: {fileID: 21300000, guid: 61297085d073cc049a5c28da8dc7887d, type: 3}
+  ForegroundLayers: []
+  NameplateLayer:
+    Artwork: {fileID: 21300000, guid: cc4bed6df3cff3b4eb350cfafeb22734, type: 3}
+    ZOffset: 0
+    Offset: {x: 0, y: 3}
+    Scale: 1.4
+    MeshResolution: 1
+    VertexDepths: []

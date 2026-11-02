@@ -38,6 +38,12 @@ namespace CAT.Editor
         private static float _copiedSubjectScale = 1f;
         private static bool _hasCopiedTemplate = false;
 
+        // Tab System & Simulation
+        private int _currentTab = 0;
+        private readonly string[] _tabTitles = { "Edit", "Preview" };
+        private Vector2 _simulatedGyroRotation = Vector2.zero;
+        private const float MAX_GYRO_TILT = 30f;
+
         [MenuItem("Tools/Card Art Tool (CAT)")]
         public static void OpenWindow()
         {
@@ -142,14 +148,27 @@ namespace CAT.Editor
             if (_serializedProfile == null) SetProfile(_activeProfile);
             _serializedProfile.Update();
 
-            DrawInteractivePreview();
-            DrawSculptingModule();
+            EditorGUILayout.Space();
+            _currentTab = GUILayout.Toolbar(_currentTab, _tabTitles, GUILayout.Height(30));
+            EditorGUILayout.Space();
 
-            _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
-            DrawGlobalControls();
-            EditorGUILayout.Space(10);
-            DrawLayerSections();
-            EditorGUILayout.EndScrollView();
+            if (_currentTab == 0)
+            {
+                // --- EDIT TAB ---
+                DrawInteractivePreview();
+                DrawSculptingModule();
+
+                _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
+                DrawGlobalControls();
+                EditorGUILayout.Space(10);
+                DrawLayerSections();
+                EditorGUILayout.EndScrollView();
+            }
+            else
+            {
+                // --- PREVIEW TAB ---
+                DrawGameSimulationViewport();
+            }
 
             if (_serializedProfile.hasModifiedProperties)
             {
@@ -575,6 +594,52 @@ namespace CAT.Editor
 
             CATLayerDrawer.DrawArraySection("Subject Layers", _serializedProfile.FindProperty("SubjectLayers"), LayerType.Subject);
             CATLayerDrawer.DrawArraySection("Background Layers", _serializedProfile.FindProperty("BackgroundLayers"), LayerType.Background);
+        }
+
+        private void DrawGameSimulationViewport()
+        {
+            Rect previewRect = GUILayoutUtility.GetRect(0f, position.height - 150f, GUILayout.ExpandWidth(true));
+            if (previewRect.width <= 0 || previewRect.height <= 0) return;
+
+            Event evt = Event.current;
+            int controlID = GUIUtility.GetControlID("PreviewSimViewport".GetHashCode(), FocusType.Passive);
+
+            // Gyroscope Simulation (Mouse Position = Phone Tilt)
+            if (previewRect.Contains(evt.mousePosition))
+            {
+                if (evt.type == EventType.MouseMove || evt.type == EventType.MouseDrag)
+                {
+                    // Map mouse position within the rect to a -1 to +1 range
+                    float normalizedX = (evt.mousePosition.x - previewRect.x) / previewRect.width;
+                    float normalizedY = (evt.mousePosition.y - previewRect.y) / previewRect.height;
+
+                    normalizedX = (normalizedX * 2f) - 1f;
+                    normalizedY = (normalizedY * 2f) - 1f;
+
+                    // Clamp to max tilt (Invert Y so mouse up tilts card up)
+                    _simulatedGyroRotation.y = -normalizedX * MAX_GYRO_TILT;
+                    _simulatedGyroRotation.x = normalizedY * MAX_GYRO_TILT;
+
+                    Repaint();
+                }
+            }
+
+            // Lock Camera Distance for Simulation
+            _previewUtility.camera.transform.position = new Vector3(0, 0, -DEFAULT_CAMERA_DISTANCE);
+            _previewUtility.camera.farClipPlane = DEFAULT_CAMERA_DISTANCE + 50f;
+
+            if (_previewTarget != null)
+            {
+                _previewTarget.transform.rotation = Quaternion.Euler(_simulatedGyroRotation.x, _simulatedGyroRotation.y, 0f);
+            }
+
+            _previewUtility.BeginPreview(previewRect, GUIStyle.none);
+            _previewUtility.Render();
+
+            Texture previewTexture = _previewUtility.EndPreview();
+            GUI.DrawTexture(previewRect, previewTexture);
+
+            GUI.Label(new Rect(previewRect.x + 5, previewRect.y + 5, 300, 20), "GAME SIMULATION (Move mouse to tilt)", EditorStyles.boldLabel);
         }
     }
 
