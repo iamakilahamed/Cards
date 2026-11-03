@@ -25,7 +25,7 @@ MonoBehaviour:
   - Artwork: {fileID: 21300000, guid: 379b1bdde7e3d2345992c6910693cc9b, type: 3}
     ZOffset: 0
     Offset: {x: 0, y: 0}
-    Scale: 1.22
+    Scale: 1.2
     MeshResolution: 1
     VertexDepths:
     - 0
@@ -44,7 +44,7 @@ MonoBehaviour:
   NameplateLayer:
     Artwork: {fileID: 21300000, guid: fe20e139c50eb1349a6a0fad9275f2fb, type: 3}
     ZOffset: 0
-    Offset: {x: 0, y: 3}
+    Offset: {x: 0, y: 1.4}
     Scale: 1.4
     MeshResolution: 1
     VertexDepths: []

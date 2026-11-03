@@ -50,6 +50,14 @@ namespace CAT.Runtime
             if (_nameplateMat != null) DestroyImmediate(_nameplateMat);
         }
 
+        private void Update()
+        {
+            if (!Application.isPlaying && LiveUpdate && TestProfile != null)
+            {
+                BuildArt(TestProfile);
+            }
+        }
+
         /// <summary>
         /// Injects the profile data into the pre-allocated slots and mathematically spaces them.
         /// </summary>
